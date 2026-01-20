@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-@Data
+@Data // It will automatically create all the 2**(no. of vars)
 @AllArgsConstructor
 @NoArgsConstructor
 @Document(collection="students")
@@ -17,6 +17,5 @@ public class StudentModel {
     private String name;
     private String age;
     private String email;
-
 
 }
