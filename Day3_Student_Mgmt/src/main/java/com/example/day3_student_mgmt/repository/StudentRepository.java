@@ -6,7 +6,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface StudentRepository extends MongoRepository <StudentModel, String> {
-    // <, String(ID String)>
+    // <StudentModel, String(ID String)>
 }
 
 
