@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Home</title>
+  <link rel="stylesheet" href="home.css">
+</head>
+
+<body>
+  <header class="page-header">
+    <div>
+      <h1>Records</h1>
+      <p class="page-subtitle">Data served by the Spring Boot API.</p>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <button id="refreshButton" class="button primary" type="button">Refresh</button>
+      <button id="addStudentButton" class="button secondary" type="button">Add Student</button>
+    </div>
+  </header>
+
+  <main class="content" aria-live="polite">
+    <section id="status" class="status hidden" role="status"></section>
+    <section id="formSection" class="form-card hidden" aria-hidden="true">
+      <header class="form-card__header">
+        <h2>Add Student</h2>
+        <p>Provide a name and email, then submit to create a new record.</p>
+      </header>
+      <form id="studentForm" class="form-grid" novalidate>
+        <div class="input-group">
+          <label for="studentName">Name</label>
+          <input id="studentName" name="name" type="text" placeholder="Student name" required>
+        </div>
+        <div class="input-group">
+          <label for="studentEmail">Email</label>
+          <input id="studentEmail" name="email" type="email" placeholder="student@example.com" required>
+        </div>
+        <div class="form-actions">
+          <button class="button primary" type="submit">Save Student</button>
+          <button id="cancelFormButton" class="button secondary" type="button">Cancel</button>
+        </div>
+      </form>
+    </section>
+    <div class="table-wrapper" aria-label="Record list">
+      <table class="data-table">
+        <caption class="visually-hidden">Student records</caption>
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Name</th>
+            <th scope="col">Email</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="recordTableBody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <template id="rowTemplate">
+    <tr>
+      <td data-cell="id"></td>
+      <td data-cell="name"></td>
+      <td data-cell="email"></td>
+      <td class="table-actions">
+        <button class="button secondary update" type="button">Update</button>
+        <button class="button danger delete" type="button">Delete</button>
+      </td>
+    </tr>
+  </template>
+
+  <script>
+    (function () {
+      const API_URL = 'http://localhost:8080/students';
+      const tableBody = document.getElementById('recordTableBody');
+      const statusEl = document.getElementById('status');
+      const refreshButton = document.getElementById('refreshButton');
+      const rowTemplate = document.getElementById('rowTemplate');
+      const addStudentButton = document.getElementById('addStudentButton');
+      const formSection = document.getElementById('formSection');
+      const studentForm = document.getElementById('studentForm');
+      const cancelFormButton = document.getElementById('cancelFormButton');
+      const nameInput = document.getElementById('studentName');
+      const emailInput = document.getElementById('studentEmail');
+
+      async function addStudent(data) {
+        const { name, email } = data;
+        try {
+          const response = await fetch(`${API_URL}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name: name.trim(), email: email.trim() })
+          });
+
+          if (!response.ok) {
+            throw new Error('Creation failed');
+          }
+
+          setStatus('Student saved successfully.', 'info');
+          await fetchRecords();
+          closeForm();
+          studentForm.reset();
+        } catch (error) {
+          console.error(error);
+          setStatus('Could not save the student.', 'error');
+        }
+      }
+
+      async function fetchRecords() {
+        setStatus('Loading records...', 'info');
+        try {
+          const response = await fetch(`${API_URL}`);
+          if (!response.ok) {
+            throw new Error('Failed to load records.');
+          }
+          const records = await response.json();
+          const safeRecords = Array.isArray(records) ? records : [];
+          renderRecords(safeRecords);
+          if (safeRecords.length === 0) {
+            setStatus('No records available yet.', 'info');
+          } else {
+            clearStatus();
+          }
+        } catch (error) {
+          console.error(error);
+          setStatus('Unable to fetch data. Please try again.', 'error');
+        }
+      }
+
+      function renderRecords(records) {
+        tableBody.innerHTML = '';
+
+        if (records.length === 0) {
+          const emptyRow = document.createElement('tr');
+          emptyRow.classList.add('empty-row');
+          const emptyCell = document.createElement('td');
+          emptyCell.colSpan = 4;
+          emptyCell.textContent = 'No records available yet.';
+          emptyRow.appendChild(emptyCell);
+          tableBody.appendChild(emptyRow);
+          return;
+        }
+
+        records.forEach((record) => {
+          const node = rowTemplate.content.cloneNode(true);
+          const row = node.querySelector('tr');
+          row.dataset.id = record.id;
+
+          const name = typeof record.name === 'string' ? record.name.trim() : '';
+          const email = typeof record.email === 'string' ? record.email.trim() : '';
+
+          row.querySelector('[data-cell="id"]').textContent = record.id ?? '—';
+          row.querySelector('[data-cell="name"]').textContent = name || 'Untitled';
+          row.querySelector('[data-cell="email"]').textContent = email || 'Not provided';
+
+          row.querySelector('.update').addEventListener('click', () => handleUpdate(record));
+          row.querySelector('.delete').addEventListener('click', () => handleDelete(record));
+
+          tableBody.appendChild(node);
+        });
+      }
+
+      function setStatus(message, tone) {
+        statusEl.textContent = message;
+        statusEl.classList.remove('hidden', 'status--error', 'status--info');
+        statusEl.classList.add(tone === 'error' ? 'status--error' : 'status--info');
+      }
+
+      function clearStatus() {
+        statusEl.textContent = '';
+        statusEl.classList.add('hidden');
+      }
+
+      async function handleUpdate(record) {
+        const currentName = record.name || '';
+        const currentEmail = record.email || '';
+        const nextName = window.prompt('Update the name', currentName);
+        if (nextName === null) {
+          return;
+        }
+        const trimmedName = nextName.trim();
+        if (!trimmedName) {
+          setStatus('Name cannot be empty.', 'error');
+          return;
+        }
+
+        const nextEmail = window.prompt('Update the email', currentEmail);
+        if (nextEmail === null) {
+          return;
+        }
+        const trimmedEmail = nextEmail.trim();
+        if (!trimmedEmail) {
+          setStatus('Email cannot be empty.', 'error');
+          return;
+        }
+
+        if (trimmedName === currentName.trim() && trimmedEmail === currentEmail.trim()) {
+          return;
+        }
+        try {
+          const response = await fetch(`${API_URL}/${encodeURIComponent(record.id)}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name: trimmedName, email: trimmedEmail })
+          });
+          if (!response.ok) {
+            throw new Error('Update failed.');
+          }
+          await fetchRecords();
+          setStatus('Record updated.', 'info');
+        } catch (error) {
+          console.error(error);
+          setStatus('Could not update the record.', 'error');
+        }
+      }
+
+      async function handleDelete(record) {
+        const confirmed = window.confirm(`Delete ${record.name || 'this record'}?`);
+        if (!confirmed) {
+          return;
+        }
+        try {
+          const response = await fetch(`${API_URL}/${encodeURIComponent(record.id)}`, {
+            method: 'DELETE'
+          });
+          if (!response.ok) {
+            throw new Error('Delete failed.');
+          }
+          await fetchRecords();
+          setStatus('Record removed.', 'info');
+        } catch (error) {
+          console.error(error);
+          setStatus('Could not delete the record.', 'error');
+        }
+      }
+
+      function openForm() {
+        formSection.classList.remove('hidden');
+        formSection.setAttribute('aria-hidden', 'false');
+        addStudentButton.textContent = 'Close Form';
+        window.requestAnimationFrame(() => nameInput.focus());
+      }
+
+      function closeForm() {
+        formSection.classList.add('hidden');
+        formSection.setAttribute('aria-hidden', 'true');
+        addStudentButton.textContent = 'Add Student';
+      }
+
+      function toggleForm() {
+        if (formSection.classList.contains('hidden')) {
+          studentForm.reset();
+          openForm();
+        } else {
+          closeForm();
+        }
+      }
+
+      refreshButton.addEventListener('click', fetchRecords);
+      addStudentButton.addEventListener('click', toggleForm);
+      cancelFormButton.addEventListener('click', () => {
+        studentForm.reset();
+        closeForm();
+      });
+      studentForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const name = nameInput.value.trim();
+        const email = emailInput.value.trim();
+
+        if (!name || !email) {
+          setStatus('Please provide both name and email.', 'error');
+          return;
+        }
+
+        addStudent({ name, email });
+      });
+      document.addEventListener('DOMContentLoaded', fetchRecords);
+    })();
+  </script>
+</body>
+
+</html>
