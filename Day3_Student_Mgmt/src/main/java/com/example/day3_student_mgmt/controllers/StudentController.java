@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Collections;
 import java.util.List;
 
+@CrossOrigin(origins = "*")
 @RestController
 public class StudentController {
 
@@ -23,13 +24,16 @@ public class StudentController {
         return service.getAllStudents();
     }
 
-    @PostMapping("/add-student")
+    @PostMapping("/students")
     public StudentResponseDto addStudent(@Valid @RequestBody StudentRequestDto student) {
         return service.addStudent(student);
     }
 
-    @PatchMapping("/update-student/{studentId}")
-    public StudentResponseDto updateStudent(@Valid @PathVariable String studentId, @RequestBody StudentRequestDto updates) {
+    @PatchMapping("/students/{studentId}")
+    public StudentResponseDto updateStudent(
+            @PathVariable String studentId,
+            @RequestBody StudentRequestDto updates
+    ) {
         return service.updateStudent(studentId, updates);
     }
 

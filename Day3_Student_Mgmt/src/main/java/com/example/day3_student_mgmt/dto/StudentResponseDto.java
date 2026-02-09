@@ -6,5 +6,5 @@ public record StudentResponseDto(
         Integer age,
         String email
 ) {
-    //
+    // Some task
 }

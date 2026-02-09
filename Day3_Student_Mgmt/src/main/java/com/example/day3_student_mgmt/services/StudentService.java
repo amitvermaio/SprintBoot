@@ -51,13 +51,13 @@ public class StudentService {
         StudentModel student = repository.findById(id)
                 .orElseThrow(() -> new StudentNotFoundException("Student Not Found!"));
 
-        if (dto.getName() != "" && dto.getName()!=null)
+        if (dto.getName().isBlank() && dto.getName()!=null)
             student.setName(dto.getName());
 
         if (dto.getAge()!=0 && dto.getAge()!=null)
             student.setAge(dto.getAge());
 
-        if (dto.getEmail() != "" && dto.getEmail()!=null)
+        if (dto.getEmail().equals("") && dto.getEmail()!=null)
             student.setEmail(dto.getEmail());
 
         repository.save(student);
