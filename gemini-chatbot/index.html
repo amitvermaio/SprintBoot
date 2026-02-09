@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Gemini Chatbot</title>
+	<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+	<main class="app-shell">
+		<section class="chat-panel" aria-label="Chat conversation">
+			<header class="chat-header">
+				<h1>Gemini Chatbot</h1>
+			</header>
+			<ul class="message-log" id="message-log" role="log" aria-live="polite"></ul>
+			<form class="composer" id="composer-form">
+				<label class="sr-only" for="user-input">Message</label>
+				<textarea id="user-input" name="message" rows="1" placeholder="Type your message..." required></textarea>
+				<button type="submit">Send</button>
+			</form>
+		</section>
+	</main>
+	<template id="message-template">
+		<li class="message">
+			<span class="message-role"></span>
+			<div class="message-text"></div>
+		</li>
+	</template>
+	<script src="script.js" defer></script>
+</body>
+</html>

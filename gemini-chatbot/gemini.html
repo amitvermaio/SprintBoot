@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Gemini Quick Chat</title>
+	<style>
+		body {
+			margin: 0;
+			font-family: Arial, sans-serif;
+			background: #f4f4f4;
+			color: #222;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			min-height: 100vh;
+		}
+
+		.chat-box {
+			width: min(480px, 90vw);
+			background: #fff;
+			border: 1px solid #ddd;
+			border-radius: 8px;
+			padding: 16px;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+		}
+
+		.chat-box h1 {
+			margin: 0 0 12px;
+			font-size: 1.25rem;
+		}
+
+		#messages {
+			min-height: 200px;
+			max-height: 360px;
+			overflow-y: auto;
+			border: 1px solid #eee;
+			border-radius: 6px;
+			padding: 12px;
+			display: flex;
+			flex-direction: column;
+			gap: 8px;
+			background: #fafafa;
+		}
+
+		.entry {
+			padding: 8px 10px;
+			border-radius: 6px;
+			border: 1px solid #e0e0e0;
+		}
+
+		.entry.user {
+			background: #e0f2fe;
+		}
+
+		.entry.bot {
+			background: #ede9fe;
+		}
+
+		form {
+			margin-top: 12px;
+			display: flex;
+			gap: 8px;
+		}
+
+		input[type="text"] {
+			flex: 1;
+			padding: 10px;
+			border: 1px solid #ccc;
+			border-radius: 6px;
+			font: inherit;
+		}
+
+		button {
+			padding: 0 18px;
+			border: none;
+			border-radius: 6px;
+			background: #2563eb;
+			color: #fff;
+			font: inherit;
+			cursor: pointer;
+		}
+
+		button:disabled {
+			opacity: 0.6;
+			cursor: not-allowed;
+		}
+	</style>
+</head>
+<body>
+	<div class="chat-box">
+		<h1>Gemini Quick Chat</h1>
+		<div id="messages" aria-live="polite"></div>
+		<form id="chat-form">
+			<input id="prompt" type="text" placeholder="Ask something..." required autocomplete="off">
+			<button type="submit">Send</button>
+		</form>
+	</div>
+
+	<script>
+		const MODEL_NAME = "gemini-2.5-flash";
+		const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+		const API_KEY = "AIzaSyAuy5ABfduA-MOWXasx4TAswNTRsX_YmL4";
+
+		const messagesBox = document.getElementById("messages");
+		const form = document.getElementById("chat-form");
+		const input = document.getElementById("prompt");
+		const sendButton = form.querySelector("button");
+		const history = [];
+
+		function addEntry(role, text) {
+			const div = document.createElement("div");
+			div.className = `entry ${role}`;
+			div.textContent = text;
+			messagesBox.append(div);
+			messagesBox.scrollTop = messagesBox.scrollHeight;
+		}
+
+		function buildRequest() {
+			return {
+				contents: history.map(item => ({
+					role: item.role === "bot" ? "model" : "user",
+					parts: [{ text: item.text }]
+				}))
+			};
+		}
+
+		async function fetchReply() {
+			if (!API_KEY) {
+				throw new Error("Missing GEMINI_API_KEY");
+			}
+
+			const url = `${API_BASE}/${MODEL_NAME}:generateContent?key=${encodeURIComponent(API_KEY)}`;
+			const response = await fetch(url, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(buildRequest())
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(`Request failed (${response.status}): ${errorText}`);
+			}
+
+			const data = await response.json();
+			const parts = data.candidates?.[0]?.content?.parts;
+			const text = Array.isArray(parts)
+				? parts.map(part => part.text).filter(Boolean).join("\n").trim()
+				: "";
+			return text || "(No reply)";
+		}
+
+		form.addEventListener("submit", async event => {
+			event.preventDefault();
+			const question = input.value.trim();
+			if (!question) {
+				return;
+			}
+
+			input.value = "";
+			history.push({ role: "user", text: question });
+			addEntry("user", question);
+			addEntry("bot", "Thinking...");
+			const placeholder = messagesBox.lastElementChild;
+
+			sendButton.disabled = true;
+			input.disabled = true;
+
+			try {
+				const answer = await fetchReply();
+				history.push({ role: "bot", text: answer });
+				placeholder.textContent = answer;
+			} catch (error) {
+				placeholder.textContent = `Error: ${error.message}`;
+			} finally {
+				sendButton.disabled = false;
+				input.disabled = false;
+				input.focus();
+			}
+		});
+
+		if (!API_KEY) {
+			addEntry("bot", "Set GEMINI_API_KEY before starting the chat.");
+			sendButton.disabled = true;
+			input.disabled = true;
+		} else {
+			addEntry("bot", "Hello! Ask me anything.");
+		}
+	</script>
+</body>
+</html>
